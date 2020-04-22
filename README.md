@@ -1,0 +1,2 @@
+# west_iyte_plausability_news_detection
+It includes detection modules
