@@ -1,4 +1,5 @@
 import sys
+import os
 import torch
 import torch.autograd as autograd
 import torch.nn.functional as F
@@ -48,6 +49,14 @@ def fit(train, val, model, optimizer, criterion, args):
                                                                              batch.batch_size))
             if steps % 100 == 0:
                 eval(val, model, criterion, args)
+                current_accuracy = eval(val, model, args)
+                if current_accuracy > best_accuracy:
+                    best_accuracy = current_accuracy
+                    if not os.path.isdir(args.save_dir):
+                        os.makedirs(args.save_dir)
+                    print("save model at step %s, accuracy is %d".format(str(steps), current_accuracy))
+                    save_path = os.path.join(args.save_dir, "snapshot.mdl")
+                    torch.save(model, save_path)
 
 
 def eval(data_iter, model, criterion, args):

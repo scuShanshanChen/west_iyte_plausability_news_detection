@@ -4,15 +4,15 @@ import torch
 
 
 class HierarchicalAttentionNet(nn.Module):
-    def __init__(self, embedding_vectors, hidden_size, batch_size, num_class=1, retrain_emb=False):
+    def __init__(self, args):
         super(HierarchicalAttentionNet, self).__init__()
-        self.batch_size = batch_size
-        self.hidden_size = hidden_size
-        self.num_class = num_class
-        self.word_attention_layer = WordAttentionNet(embedding_vectors=embedding_vectors,
-                                                     hidden_size=hidden_size,
-                                                     retrain_emb=retrain_emb)
-        self.sentence_attention_layer = SentenceAttentionNet(hidden_size=hidden_size, num_class=num_class)
+        self.batch_size = args.batch_size
+        self.hidden_size = args.hidden_size
+        self.num_class = args.num_class
+        self.word_attention_layer = WordAttentionNet(embedding_vectors=args.embedding_vectors,
+                                                     hidden_size=self.hidden_size,
+                                                     retrain_emb=args.retrain_emb)
+        self.sentence_attention_layer = SentenceAttentionNet(hidden_size=self.hidden_size, num_class=self.num_class)
 
     def forward(self, x, **kwargs):
         # x is for batch 16 [16, 62, 271]: batch, tokens, sentences
@@ -48,9 +48,9 @@ class AttentionLayer(nn.Module):
 
     def forward(self, hidden_state):
         u_it = torch.tanh(self.linear(hidden_state))
-        a_it = torch.matmul(u_it.transpose(1,0), self.context_weights)
+        a_it = torch.matmul(u_it.transpose(1, 0), self.context_weights)
         a_it = torch.sigmoid(a_it)
-        a_it = a_it.squeeze(dim=2) # [8,126,1] becomes [8,126]
+        a_it = a_it.squeeze(dim=2)  # [8,126,1] becomes [8,126]
         s_i = torch.mul(hidden_state.permute(2, 0, 1), a_it.transpose(1, 0))
         s_i = torch.sum(s_i, dim=1).transpose(1, 0).unsqueeze(0)
         return s_i
