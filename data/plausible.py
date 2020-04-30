@@ -88,7 +88,7 @@ def read_files(plausible_path, implausible_path, target_path, pre_embeddings_pat
     prepare_tsv(plausible_path, implausible_path, target_path, option='combined')
     nesting_field = data.Field(batch_first=True, tokenize=word_tokenizer,
                                unk_token='<unk>', include_lengths=False, sequential=True)
-    text_field = data.Field(nesting_field, tokenize=sent_tokenize)
+    text_field = data.NestedField(nesting_field, tokenize=sent_tokenize)
     label_field = data.Field(sequential=False, use_vocab=True, batch_first=True, dtype=torch.float)
     fields = [('text', text_field), ('label', label_field)]
 

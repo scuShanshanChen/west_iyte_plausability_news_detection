@@ -10,6 +10,7 @@ def fit(train, val, model, optimizer, criterion, args):
     model.train()
     if args.cuda:
         model.cuda()
+
     for epoch in range(1, args.epochs + 1):
         for batch in train:
 
