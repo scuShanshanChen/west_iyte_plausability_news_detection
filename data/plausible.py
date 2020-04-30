@@ -40,7 +40,7 @@ class PlausibleDataset(data.TabularDataset):
         :param k:
         :return: index of kfolded
         """
-        kf = KFold(k,random_state=random_seed)
+        kf = KFold(k)
         examples = self.examples
         return kf.split(examples)
 
@@ -74,9 +74,9 @@ def prepare_tsv(plausible_path, implausible_path, target_path, option='combined'
 
     if 'combined' == option:
         plausible['text'] = plausible['title'] + plausible['content']
-        plausible['label'] = 'plausible'
+        plausible['label'] = 1
         implausible['text'] = implausible['title'] + implausible['content']
-        implausible['label'] = 'implausible'
+        implausible['label'] = 0
         data = pd.concat([plausible[['text', 'label']], implausible[['text', 'label']]])
 
     # split into 20% test, 80% train
@@ -107,7 +107,7 @@ def read_files(args):
     nesting_field = data.Field(batch_first=True, tokenize=word_tokenizer,
                                unk_token='<unk>', include_lengths=False, sequential=True)
     text_field = data.NestedField(nesting_field, tokenize=sent_tokenize)
-    label_field = data.Field(sequential=False, batch_first=True, dtype=torch.float)
+    label_field = data.Field(sequential=False, use_vocab=False, batch_first=True, dtype=torch.float)
     fields = [('text', text_field), ('label', label_field)]
 
     train_path = os.path.join(target_path, 'train.tsv')
@@ -128,6 +128,5 @@ def read_files(args):
     # TODO change later for supporting other embeddings
     pre_embeddings = googlenews_wrapper(pre_embeddings_path)
     text_field.build_vocab(train, max_size=args.max_vocab_size, vectors=pre_embeddings)
-    label_field.build_vocab(train)
 
     return train, test, text_field, label_field

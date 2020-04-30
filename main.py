@@ -6,6 +6,7 @@ import numpy as np
 import os
 from torchtext import data
 from torch import nn
+from torch import optim
 
 from data.plausible import read_files
 from baselines.han import HAN, add_han_specific_parser
@@ -30,10 +31,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Experiments for Plausible Detection Models')
     parser.add_argument('--seed', default=42, type=int)
     parser.add_argument('--target_class', default=1, type=int)
-    parser.add_argument('--batch_size', default=32, type=int)
-    parser.add_argument('--max_vocab_size', default=300000, type=int)
+    parser.add_argument('--batch_size', default=8, type=int)
+    parser.add_argument('--max_vocab_size', default=25000, type=int)
     parser.add_argument('--kfold', default=5, type=int)
     parser.add_argument('--epochs', default=1, type=int)
+    parser.add_argument('--lr',default=1e-3)
+    parser.add_argument('--momentum', default=0.9)
 
     # add model specific params
     parser = add_han_specific_parser(parser)
@@ -55,7 +58,9 @@ if __name__ == '__main__':
     accuracys = []
     avg_losses = []
 
-    for train_range, test_range in kfold_range:
+    for kfold_i,(train_range, test_range) in enumerate(kfold_range):
+        logging.info('Training {} th fold'.format(kfold_i+1))
+
         train_data_k, dev_data_k = train_data.get_fold(fields=[('text', text_field), ('label', label_field)],
                                                        train_indexs=train_range,
                                                        test_indexs=test_range)
@@ -64,12 +69,14 @@ if __name__ == '__main__':
                                                     batch_sizes=(args.batch_size, len(dev_data_k)))
 
         model = HAN(args)
-        optimizer = None  # add later
+        optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)  # add later
         loss_criterion = nn.BCEWithLogitsLoss()
-        train(train_iter, dev_iter, model, optimizer, loss_criterion, args)
 
-        accuracy, loss = eval(dev_iter, model)
-        accuracys.append(accuracy)
-        avg_losses.append(loss)
+        model.to(args.device)
+        train(train_iter, dev_iter, model, optimizer, loss_criterion, writer, args)
+
+        # accuracy, loss = eval(dev_iter, model)
+        # accuracys.append(accuracy)
+        # avg_losses.append(loss)
 
     print("avarage accuracy is %s, loss is %s".format(np.average(accuracys)), np.average(avg_losses))

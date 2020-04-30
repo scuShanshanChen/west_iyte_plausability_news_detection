@@ -17,7 +17,7 @@ class WordLevelRNN(nn.Module):
         self.GRU = nn.GRU(words_dim, word_num_hidden, bidirectional=True)
         self.linear = nn.Linear(2 * word_num_hidden, 2 * word_num_hidden, bias=True)
         # self.word_context_weights.data.uniform_(-0.25, 0.25)
-        self.soft_word = nn.Softmax()
+        self.soft_word = nn.Softmax(dim=-1)
 
     def forward(self, x):
         # x expected to be of dimensions--> (num_words, batch_size)
@@ -46,7 +46,7 @@ class SentLevelRNN(nn.Module):
         self.sentence_gru = nn.GRU(2 * word_num_hidden, sentence_num_hidden, bidirectional=True)
         self.sentence_linear = nn.Linear(2 * sentence_num_hidden, 2 * sentence_num_hidden, bias=True)
         self.fc = nn.Linear(2 * sentence_num_hidden, target_class)
-        self.soft_sent = nn.Softmax()
+        self.soft_sent = nn.Softmax(dim=-1)
 
     def forward(self, x):
         sentence_h, _ = self.sentence_gru(x)
