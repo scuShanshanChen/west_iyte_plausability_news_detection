@@ -7,7 +7,7 @@ from torchtext import data
 from torch import nn
 from data.plausible import read_files
 from baselines.han import HAN, add_han_specific_parser
-from utils.dl_runner import fit, eval
+from utils.dl_runner import train, eval
 
 # Setup colorful logging
 logging.basicConfig()

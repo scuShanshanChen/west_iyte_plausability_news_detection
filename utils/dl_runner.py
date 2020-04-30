@@ -5,59 +5,32 @@ import torch.autograd as autograd
 import torch.nn.functional as F
 
 
-def fit(train, val, model, optimizer, criterion, args):
-    steps = 0
-    model.train()
-    if args.cuda:
-        model.cuda()
+def train(train_iter, dev_iter, model, optimizer, loss_criterion, args):
+    best_dev_acc = -1
 
-    for epoch in range(1, args.epochs + 1):
-        for batch in train:
+    for epoch in range(args.epochs):
 
-            feature, target = batch.text, batch.labels
-            # print target
+        model.train()
+        train_iter.init_epoch()
 
-            target.data.sub_(1)
+        for batch_idx, batch in enumerate(train_iter):
+            texts = batch.text
+            labels = batch.label
 
-            x = feature.data.numpy()
-            x = x.T
-            feature = autograd.Variable(torch.from_numpy(x))
-            # print feature[0]
-            # print type(feature)
-            if args.cuda:
-                feature, target = feature.cuda(), target.cuda()
+            texts.to(args.device)
+            labels.to(args.device)
+
             optimizer.zero_grad()
 
-            out = model(feature)
-            # print out
+            # forward pass
+            predictions = model(texts)
 
-            # print out
-            # print target.view(-1)
-            loss = F.cross_entropy(out, target.view(-1))
+            # calculate loss of the network output with respect to training labels
+            loss = loss_criterion(predictions, labels)
+
+            # backpropagate and update optimizer learning rate
             loss.backward()
             optimizer.step()
-
-            steps += 1
-            if steps % 1 == 0:
-                # print torch.max(out, 1)[1].view(target.size()).data
-                corrects = (torch.max(out, 1)[1].view(target.size()).data == target.data).sum()
-                accuracy = 100.0 * corrects / batch.batch_size
-                sys.stdout.write(
-                    '\rBatch[{}] - loss: {:.6f}  acc: {:.4f}%({}/{})'.format(steps,
-                                                                             loss.data[0],
-                                                                             accuracy,
-                                                                             corrects,
-                                                                             batch.batch_size))
-            if steps % 100 == 0:
-                eval(val, model, criterion, args)
-                current_accuracy = eval(val, model, args)
-                if current_accuracy > best_accuracy:
-                    best_accuracy = current_accuracy
-                    if not os.path.isdir(args.save_dir):
-                        os.makedirs(args.save_dir)
-                    print("save model at step %s, accuracy is %d".format(str(steps), current_accuracy))
-                    save_path = os.path.join(args.save_dir, "snapshot.mdl")
-                    torch.save(model, save_path)
 
 
 def eval(data_iter, model, criterion, args):
