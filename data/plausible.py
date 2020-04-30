@@ -5,6 +5,9 @@ import os
 import torch
 import numpy as np
 import pandas as pd
+from gensim.models import KeyedVectors
+from torchtext import data
+import gensim
 from joblib import Memory
 from torchtext import data
 from sklearn.model_selection import train_test_split
@@ -37,9 +40,9 @@ class PlausibleDataset(data.TabularDataset):
         :param k:
         :return: index of kfolded
         """
-        kf = KFold(k)
+        kf = KFold(k,random_state=random_seed)
         examples = self.examples
-        return kf.split(examples, random_state=random_seed)
+        return kf.split(examples)
 
     def get_fold(self, fields, train_indexs, test_indexs, shuffle=True):
         """
@@ -79,17 +82,32 @@ def prepare_tsv(plausible_path, implausible_path, target_path, option='combined'
     # split into 20% test, 80% train
     train, test = train_test_split(data, test_size=0.2, random_state=random_seed)
 
-    train.to_csv(os.path.join(target_path, 'train.tsv'), index=False)
-    test.to_csv(os.path.join(target_path, 'test.tsv'), index=False)
+    train.to_csv(os.path.join(target_path, 'train.tsv'), sep='\t', index=False)
+    test.to_csv(os.path.join(target_path, 'test.tsv'), sep='\t', index=False)
+
+
+def googlenews_wrapper(bin_file_path):
+    if not os.path.exists('datasets/embedding_wrapper'):
+        logging.debug('Wrapping Googlenews embedding ...')
+        model = KeyedVectors.load_word2vec_format(bin_file_path, binary=True, encoding="ISO-8859-1",
+                                                  unicode_errors='ignore')
+        model.wv.save_word2vec_format('datasets/embedding_wrapper')
+    vectors = Vectors(name='embedding_wrapper')
+    return vectors
 
 
 @MEMORY.cache
-def read_files(plausible_path, implausible_path, target_path, pre_embeddings_path):
+def read_files(args):
+    plausible_path = args.plausible_path
+    implausible_path = args.implausible_path
+    target_path = args.target_path
+    pre_embeddings_path = args.pre_embeddings_path
+
     prepare_tsv(plausible_path, implausible_path, target_path, option='combined')
     nesting_field = data.Field(batch_first=True, tokenize=word_tokenizer,
                                unk_token='<unk>', include_lengths=False, sequential=True)
     text_field = data.NestedField(nesting_field, tokenize=sent_tokenize)
-    label_field = data.Field(sequential=False, use_vocab=True, batch_first=True, dtype=torch.float)
+    label_field = data.Field(sequential=False, batch_first=True, dtype=torch.float)
     fields = [('text', text_field), ('label', label_field)]
 
     train_path = os.path.join(target_path, 'train.tsv')
@@ -106,10 +124,10 @@ def read_files(plausible_path, implausible_path, target_path, pre_embeddings_pat
                             skip_header=True,
                             fields=fields
                             )
-    pre_embeddings = Vectors(name=pre_embeddings_path)
-    text_field.build_vocab(train, vectors=pre_embeddings)
+
+    # TODO change later for supporting other embeddings
+    pre_embeddings = googlenews_wrapper(pre_embeddings_path)
+    text_field.build_vocab(train, max_size=args.max_vocab_size, vectors=pre_embeddings)
     label_field.build_vocab(train)
 
     return train, test, text_field, label_field
-
-
