@@ -2,7 +2,6 @@ import logging
 import argparse
 import coloredlogs
 import torch
-import numpy as np
 import os
 from torchtext import data
 from torch import nn
@@ -10,15 +9,13 @@ from torch import optim
 
 from data.plausible import read_files
 from baselines.han import HAN, add_han_specific_parser
-from utils.dl_runner import train, eval
-from torch.utils.tensorboard import SummaryWriter
+from utils.dl_runner import train
 
 # Setup colorful logging
 logging.basicConfig()
 logger = logging.getLogger('main.py')
 logger.root.setLevel(logging.DEBUG)
 coloredlogs.install(level='DEBUG', logger=logger)
-writer = SummaryWriter('runs/plausible')
 
 
 def init_random_seeds(seed):
@@ -35,7 +32,7 @@ if __name__ == '__main__':
     parser.add_argument('--max_vocab_size', default=25000, type=int)
     parser.add_argument('--kfold', default=5, type=int)
     parser.add_argument('--epochs', default=1, type=int)
-    parser.add_argument('--lr',default=1e-3)
+    parser.add_argument('--lr', default=1e-3)
     parser.add_argument('--momentum', default=0.9)
 
     # add model specific params
@@ -58,25 +55,25 @@ if __name__ == '__main__':
     accuracys = []
     avg_losses = []
 
-    for kfold_i,(train_range, test_range) in enumerate(kfold_range):
-        logging.info('Training {} th fold'.format(kfold_i+1))
+    for kfold_i, (train_range, test_range) in enumerate(kfold_range):
+        torch.cuda.empty_cache()
+
+        logging.info('Training {} th fold'.format(kfold_i + 1))
 
         train_data_k, dev_data_k = train_data.get_fold(fields=[('text', text_field), ('label', label_field)],
                                                        train_indexs=train_range,
                                                        test_indexs=test_range)
 
-        train_iter, dev_iter = data.Iterator.splits((train_data_k, dev_data_k), device=args.device,
-                                                    batch_sizes=(args.batch_size, len(dev_data_k)))
+        train_iter, dev_iter = data.BucketIterator.splits((train_data_k, dev_data_k), device=args.device,
+                                                          batch_sizes=(args.batch_size, args.batch_size),
+                                                          sort_key=lambda x: len(x.text))
+
+        logging.info("Number of training samples {train}, number of dev samples {dev}".format(train=len(train_iter),
+                                                                                              dev=len(dev_iter)))
 
         model = HAN(args)
         optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)  # add later
         loss_criterion = nn.BCEWithLogitsLoss()
 
         model.to(args.device)
-        train(train_iter, dev_iter, model, optimizer, loss_criterion, writer, args)
-
-        # accuracy, loss = eval(dev_iter, model)
-        # accuracys.append(accuracy)
-        # avg_losses.append(loss)
-
-    print("avarage accuracy is %s, loss is %s".format(np.average(accuracys)), np.average(avg_losses))
+        train(train_iter, dev_iter, model, optimizer, loss_criterion, args)
