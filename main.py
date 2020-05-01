@@ -29,11 +29,13 @@ if __name__ == '__main__':
     parser.add_argument('--seed', default=42, type=int)
     parser.add_argument('--target_class', default=1, type=int)
     parser.add_argument('--batch_size', default=8, type=int)
-    parser.add_argument('--max_vocab_size', default=25000, type=int)
+    parser.add_argument('--max_vocab_size', default=100000, type=int)
     parser.add_argument('--kfold', default=5, type=int)
-    parser.add_argument('--epochs', default=1, type=int)
-    parser.add_argument('--lr', default=1e-3)
+    parser.add_argument('--epochs', default=5, type=int)
+    parser.add_argument('--lr', default=1e-4, type=float)
     parser.add_argument('--momentum', default=0.9)
+    parser.add_argument('--checkpoint_dir', default='./datasets/model')
+    parser.add_argument('--training_mode', default='kfold')
 
     # add model specific params
     parser = add_han_specific_parser(parser)
@@ -49,11 +51,15 @@ if __name__ == '__main__':
 
     logging.debug('Reading datasets...')
     train_data, test_data, text_field, label_field = read_files(args)
+
     args.vectors = text_field.vocab.vectors
 
     kfold_range = train_data.kfold(args.kfold)
     accuracys = []
     avg_losses = []
+
+    logging.info('Number of train samples {}'.format(len(train_data)))
+    logging.info('Number of test samples {}'.format(len(test_data)))
 
     for kfold_i, (train_range, test_range) in enumerate(kfold_range):
         torch.cuda.empty_cache()
@@ -68,11 +74,14 @@ if __name__ == '__main__':
                                                           batch_sizes=(args.batch_size, args.batch_size),
                                                           sort_key=lambda x: len(x.text))
 
-        logging.info("Number of training samples {train}, number of dev samples {dev}".format(train=len(train_iter),
-                                                                                              dev=len(dev_iter)))
+        logging.info(
+            "Number of training samples {train}, number of dev samples {dev} in fold {kfold}".format(
+                train=len(train_iter),
+                dev=len(dev_iter),
+                kfold=kfold_i + 1))
 
         model = HAN(args)
-        optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)  # add later
+        optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
         loss_criterion = nn.BCEWithLogitsLoss()
 
         model.to(args.device)

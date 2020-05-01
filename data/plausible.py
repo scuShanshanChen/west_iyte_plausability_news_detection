@@ -14,7 +14,7 @@ from sklearn.model_selection import train_test_split
 from torchtext.data import Dataset
 from torchtext.vocab import Vectors
 from nltk.tokenize import sent_tokenize
-from sklearn.model_selection import KFold
+from sklearn.model_selection import KFold, StratifiedKFold
 
 logger = logging.getLogger('data/plausible.py')
 random.seed = 42
@@ -40,18 +40,17 @@ class PlausibleDataset(data.TabularDataset):
         :param k:
         :return: index of kfolded
         """
-        kf = KFold(k)
+        kf = StratifiedKFold(k, random_state=random_seed)
         examples = self.examples
-        return kf.split(examples)
+        return kf.split(examples,[example.label for example in examples])
 
-    def get_fold(self, fields, train_indexs, test_indexs, shuffle=True):
+    def get_fold(self, fields, train_indexs, test_indexs):
         """
         get new batch
         :return:
         """
         examples = np.asarray(self.examples)
 
-        if shuffle: random.shuffle(examples)
         return (Dataset(fields=fields, examples=examples[list(train_indexs)]),
                 Dataset(fields=fields, examples=examples[list(test_indexs)]))
 
@@ -68,7 +67,7 @@ def word_tokenizer(text: str):
     return text
 
 
-def prepare_tsv(plausible_path, implausible_path, target_path, option='combined'):
+def prepare_tsv(plausible_path, implausible_path, target_path, make_balance=True, option='combined'):
     plausible = pd.read_csv(plausible_path, sep='\t')
     implausible = pd.read_csv(implausible_path, sep='\t')
 
@@ -78,6 +77,11 @@ def prepare_tsv(plausible_path, implausible_path, target_path, option='combined'
         implausible['text'] = implausible['title'] + implausible['content']
         implausible['label'] = 0
         data = pd.concat([plausible[['text', 'label']], implausible[['text', 'label']]])
+
+    if make_balance:
+        sample_size = min(len(data[data['label'] == 0]), len(data[data['label'] == 1]))
+        grouped = data.groupby('label')
+        data = grouped.apply(lambda x: x.sample(sample_size, random_state=random_seed))
 
     # split into 20% test, 80% train
     train, test = train_test_split(data, test_size=0.2, random_state=random_seed)

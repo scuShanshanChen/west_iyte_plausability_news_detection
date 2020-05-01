@@ -1,10 +1,11 @@
 import torch
+import os
 import logging
 from sklearn.metrics import accuracy_score, f1_score, recall_score, precision_score
 
 logger = logging.getLogger('utils/dl_runner.py')
 
-stats_columns = '{0:>10} | {1:>10} | {2:>10} | {3:>10} |{4:>10} | {5:>10} | {6:>10} | {7:>10} | {8:>10} | {9:>10} | {10:>10}'
+stats_columns = '{0:>5}|{1:>5}|{2:>5}|{3:>5}|{4:>5}|{5:>5}|{6:>5}|{7:>5}|{8:>5}|{9:>5}|{10:>5}'
 
 
 def train(train_iter, dev_iter, model, optimizer, loss_criterion, args):
@@ -48,11 +49,11 @@ def train(train_iter, dev_iter, model, optimizer, loss_criterion, args):
             _label = labels.cpu().data.numpy()
             trues.append(_label)
 
+            train_loss += loss.item()
+
             # backpropagate and update optimizer learning rate
             loss.backward()
             optimizer.step()
-
-            train_loss += loss.item()
 
         train_loss = train_loss / n_total_steps
 
@@ -71,8 +72,15 @@ def train(train_iter, dev_iter, model, optimizer, loss_criterion, args):
                                                                                                     best_dev_acc=best_dev_acc))
             best_dev_acc = dev_acc
 
+            training_mode = args.training_mode
+            model_name = '{training_mode}_{epoch}_{dev_acc:03}.pth.tar'.format(training_mode=training_mode, epoch=epoch,
+                                                                               dev_acc=dev_acc)
+            save_model(model, optimizer, epoch, model_name, training_mode, args.checkpoint_dir)
+
 
 def calculate_metrics(label, pred):
+    logging.debug('Expected: \n{}'.format(label))
+    logging.debug('Predicted: \n{}'.format(pred))
     acc = accuracy_score(label, pred)
     f1 = f1_score(label, pred, average='binary')
     recall = recall_score(label, pred)
@@ -94,7 +102,8 @@ def eval(dev_iter, model, loss_criterion, args):
         labels.to(args.device)
 
         # forward pass
-        predictions = model(texts)
+        with torch.no_grad():
+            predictions = model(texts)
 
         # calculate loss of the network output with respect to training labels
         loss = loss_criterion(predictions, labels)
@@ -109,3 +118,30 @@ def eval(dev_iter, model, loss_criterion, args):
 
     dev_loss = dev_loss / n_total_steps
     return _label, _pred, dev_loss
+
+
+def save_model(model, optimizer, epoch, model_name, training_mode, checkpoint_dir):
+    if not os.path.exists(checkpoint_dir):
+        os.makedirs(checkpoint_dir)
+
+    save_path = os.path.join(checkpoint_dir, model_name)
+
+    torch.save({
+        'epoch': epoch,
+        'training_mode': training_mode,
+        'state_dict': model.state_dict(),
+        'optimizer': optimizer.state_dict()
+    }, save_path)
+
+    logging.info('Best model in {training_mode} is saved to {save_path}'.format(training_mode=training_mode,
+                                                                                save_path=save_path))
+    return save_path
+
+
+def load_model(checkpoint_path, model, optimizer=None):
+    checkpoint = torch.load(checkpoint_path)
+    model.load_state_dict(checkpoint['state_dict'])
+    if optimizer is not None and 'optimizer' in checkpoint:
+        optimizer.load_state_dict(checkpoint['optimizer'])
+    logging.info('Loaded checkpoint from path "{}" (at epoch {}) in training mode {}'
+                 .format(checkpoint_path, checkpoint['epoch']), checkpoint['training_mode'])
