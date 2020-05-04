@@ -13,7 +13,7 @@ class WordLevelRNN(nn.Module):
         word_num_hidden = args.word_num_hidden
 
         words_num, words_dim = vectors.shape
-        self.embed = nn.Embedding.from_pretrained(vectors, freeze=False)
+        self.embed = nn.Embedding.from_pretrained(vectors, freeze=True)
         self.word_context_weights = nn.Parameter(torch.rand(2 * word_num_hidden, 1))
 
         stdv = 1. / math.sqrt(self.word_context_weights.size(0))

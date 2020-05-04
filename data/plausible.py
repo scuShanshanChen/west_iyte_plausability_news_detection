@@ -41,7 +41,7 @@ class PlausibleDataset(data.TabularDataset):
         """
         kf = StratifiedKFold(k, random_state=random_seed)
         examples = self.examples
-        return kf.split(examples,[example.label for example in examples])
+        return kf.split(examples, [example.label for example in examples])
 
     def get_fold(self, fields, train_indexs, test_indexs):
         """
@@ -71,17 +71,46 @@ def prepare_tsv(plausible_path, implausible_path, target_path, option='combined'
     implausible = pd.read_csv(implausible_path, sep='\t')
 
     if 'combined' == option:
-        plausible['text'] = plausible['title'] + plausible['content']
-        plausible['label'] = 1
-        implausible['text'] = implausible['title'] + implausible['content']
-        implausible['label'] = 0
-        data = pd.concat([plausible[['text', 'label']], implausible[['text', 'label']]])
+        data = combined_index(implausible, plausible)
 
     # split into 20% test, 80% train
     train, test = train_test_split(data, test_size=0.2, random_state=random_seed)
 
     train.to_csv(os.path.join(target_path, 'train.tsv'), sep='\t', index=False)
     test.to_csv(os.path.join(target_path, 'test.tsv'), sep='\t', index=False)
+
+
+@MEMORY.cache
+def combined_index(implausible, plausible):
+    plausible['text'] = plausible['title'] + plausible['content']
+    plausible['label'] = 1
+    implausible['text'] = implausible['title'] + implausible['content']
+    implausible['label'] = 0
+    data = pd.concat([plausible[['text', 'label']], implausible[['text', 'label']]])
+    train, test = train_test_split(data, test_size=0.2, random_state=random_seed)
+    return train, test
+
+
+@MEMORY.cache
+def title_index(implausible, plausible):
+    plausible['text'] = plausible['title']
+    plausible['label'] = 1
+    implausible['text'] = implausible['title']
+    implausible['label'] = 0
+    data = pd.concat([plausible[['text', 'label']], implausible[['text', 'label']]])
+    train, test = train_test_split(data, test_size=0.2, random_state=random_seed)
+    return train, test
+
+
+@MEMORY.cache
+def body_index(implausible, plausible):
+    plausible['text'] = plausible['content']
+    plausible['label'] = 1
+    implausible['text'] = implausible['content']
+    implausible['label'] = 0
+    data = pd.concat([plausible[['text', 'label']], implausible[['text', 'label']]])
+    train, test = train_test_split(data, test_size=0.2, random_state=random_seed)
+    return train, test
 
 
 def googlenews_wrapper(bin_file_path):
@@ -126,4 +155,3 @@ def read_files(args):
     text_field.build_vocab(train, max_size=args.max_vocab_size, vectors="glove.6B.300d", unk_init=torch.Tensor.normal_)
 
     return train, test, text_field, label_field
-
