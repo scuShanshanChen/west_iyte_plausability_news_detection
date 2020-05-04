@@ -1,4 +1,5 @@
 import torch
+from torchtext import data
 import os
 import logging
 from sklearn.metrics import accuracy_score, f1_score, recall_score, precision_score
@@ -9,7 +10,7 @@ stats_columns = '{0:>5}|{1:>5}|{2:>5}|{3:>5}|{4:>5}|{5:>5}|{6:>5}|{7:>5}|{8:>5}|
 
 
 def train(train_iter, dev_iter, model, optimizer, loss_criterion, args):
-    best_dev_acc = -1
+    best_dev_f1 = -1
 
     n_total_steps = len(train_iter)
 
@@ -67,14 +68,15 @@ def train(train_iter, dev_iter, model, optimizer, loss_criterion, args):
             stats_columns.format(epoch, train_acc, train_f1, train_recall, train_prec, train_loss, dev_acc, dev_f1,
                                  dev_recall, dev_prec, dev_loss))
 
-        if best_dev_acc < dev_acc:
-            logging.debug('New dev acc {dev_acc} is larger than best dev acc {best_dev_acc}'.format(dev_acc=dev_acc,
-                                                                                                    best_dev_acc=best_dev_acc))
-            best_dev_acc = dev_acc
+        if best_dev_f1 < dev_f1:
+            logging.debug('New dev acc {dev_acc} is larger than best dev acc {best_dev_acc}'.format(dev_acc=dev_f1,
+                                                                                                    best_dev_acc=best_dev_f1))
+            best_dev_f1 = dev_f1
 
             training_mode = args.training_mode
-            model_name = '{training_mode}_{epoch}_{dev_acc:03}.pth.tar'.format(training_mode=training_mode, epoch=epoch,
-                                                                               dev_acc=dev_acc)
+            model_name = '{training_mode}_epoch_{epoch}_dev_f1_{dev_f1:03}.pth.tar'.format(training_mode=training_mode,
+                                                                                           epoch=epoch,
+                                                                                           dev_f1=dev_f1)
             save_model(model, optimizer, epoch, model_name, training_mode, args.checkpoint_dir)
 
 
@@ -118,6 +120,54 @@ def eval(dev_iter, model, loss_criterion, args):
 
     dev_loss = dev_loss / n_total_steps
     return _label, _pred, dev_loss
+
+
+def train_kfold(model, train_data, text_field, label_field, optimizer, loss_criterion, args):
+    logging.info('Mode: kfold training')
+    kfold_range = train_data.kfold(args.kfold)
+    accuracys = []
+    avg_losses = []
+
+    logging.info('Number of train samples {}'.format(len(train_data)))
+
+    for kfold_i, (train_range, test_range) in enumerate(kfold_range):
+        torch.cuda.empty_cache()
+
+        logging.info('Training {} th fold'.format(kfold_i + 1))
+
+        train_data_k, dev_data_k = train_data.get_fold(fields=[('text', text_field), ('label', label_field)],
+                                                       train_indexs=train_range,
+                                                       test_indexs=test_range)
+
+        train_iter, dev_iter = data.BucketIterator.splits((train_data_k, dev_data_k), device=args.device,
+                                                          batch_sizes=(args.batch_size, args.batch_size),
+                                                          sort_key=lambda x: len(x.text), shuffle=True)
+
+        logging.info(
+            "Number of training samples {train}, number of dev samples {dev} in fold {kfold}".format(
+                train=len(train_iter),
+                dev=len(dev_iter),
+                kfold=kfold_i + 1))
+
+        model.to(args.device)
+        train(train_iter, dev_iter, model, optimizer, loss_criterion, args)
+
+
+def train_split(model, train_data, text_field, label_field, optimizer, loss_criterion, args):
+    logging.info('Mode: random split training')
+    train_data, valid_data = train_data.splits(fields=[('text', text_field), ('label', label_field)])
+    train_iter, dev_iter = data.BucketIterator.splits((train_data, valid_data), device=args.device,
+                                                      batch_sizes=(args.batch_size, args.batch_size),
+                                                      sort_key=lambda x: len(x.text), shuffle=True)
+    torch.cuda.empty_cache()
+
+    logging.info(
+        "Number of training samples {train}, number of dev samples {dev} in random split".format(
+            train=len(train_iter),
+            dev=len(dev_iter)))
+
+    model.to(args.device)
+    train(train_iter, dev_iter, model, optimizer, loss_criterion, args)
 
 
 def save_model(model, optimizer, epoch, model_name, training_mode, checkpoint_dir):

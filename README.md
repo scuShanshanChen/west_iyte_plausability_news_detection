@@ -1,18 +1,16 @@
 # west_iyte_plausability_news_detection
 
-reference: https://stackoverflow.com/questions/50777849/from-conda-create-requirements-txt-for-pip3
+## Installation
+Run in one of virtual environment. If you have a server incompatible with venv, do the [following](https://stackoverflow.com/questions/50777849/from-conda-create-requirements-txt-for-pip3):
 
-conda create --name plausible
+- `conda create --name plausible`
+- `conda activate plausible`
+- `conda install pip`
+- `pip freeze > requirements.txt`
+- `pip install -r requirements.txt`
 
-conda activate plausible
-conda install pip
-pip freeze > requirements.txt
+## Running the experiments
 
-pip install -r requirements.txt
+### Training
 
-
-Download Google news embeddings
-
-
-
-It includes detection modules
+an example script how to train the model `python main.py --training_mode random_split --epochs 20`

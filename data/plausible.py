@@ -6,15 +6,14 @@ import torch
 import numpy as np
 import pandas as pd
 from gensim.models import KeyedVectors
-from torchtext import data
-import gensim
+
 from joblib import Memory
 from torchtext import data
 from sklearn.model_selection import train_test_split
 from torchtext.data import Dataset
 from torchtext.vocab import Vectors
 from nltk.tokenize import sent_tokenize
-from sklearn.model_selection import KFold, StratifiedKFold
+from sklearn.model_selection import StratifiedKFold
 
 logger = logging.getLogger('data/plausible.py')
 random.seed = 42
@@ -67,7 +66,7 @@ def word_tokenizer(text: str):
     return text
 
 
-def prepare_tsv(plausible_path, implausible_path, target_path, make_balance=True, option='combined'):
+def prepare_tsv(plausible_path, implausible_path, target_path, option='combined'):
     plausible = pd.read_csv(plausible_path, sep='\t')
     implausible = pd.read_csv(implausible_path, sep='\t')
 
@@ -77,11 +76,6 @@ def prepare_tsv(plausible_path, implausible_path, target_path, make_balance=True
         implausible['text'] = implausible['title'] + implausible['content']
         implausible['label'] = 0
         data = pd.concat([plausible[['text', 'label']], implausible[['text', 'label']]])
-
-    if make_balance:
-        sample_size = min(len(data[data['label'] == 0]), len(data[data['label'] == 1]))
-        grouped = data.groupby('label')
-        data = grouped.apply(lambda x: x.sample(sample_size, random_state=random_seed))
 
     # split into 20% test, 80% train
     train, test = train_test_split(data, test_size=0.2, random_state=random_seed)
@@ -105,12 +99,11 @@ def read_files(args):
     plausible_path = args.plausible_path
     implausible_path = args.implausible_path
     target_path = args.target_path
-    pre_embeddings_path = args.pre_embeddings_path
 
     prepare_tsv(plausible_path, implausible_path, target_path, option='combined')
     nesting_field = data.Field(batch_first=True, tokenize=word_tokenizer,
-                               unk_token='<unk>', include_lengths=False, sequential=True)
-    text_field = data.NestedField(nesting_field, tokenize=sent_tokenize)
+                               unk_token='<unk>', include_lengths=False, sequential=True, fix_length=args.word_max_len)
+    text_field = data.NestedField(nesting_field, tokenize=sent_tokenize, fix_length=args.sent_max_len)
     label_field = data.Field(sequential=False, use_vocab=False, batch_first=True, dtype=torch.float)
     fields = [('text', text_field), ('label', label_field)]
 
@@ -129,8 +122,8 @@ def read_files(args):
                             fields=fields
                             )
 
-    # TODO change later for supporting other embeddings
-    pre_embeddings = googlenews_wrapper(pre_embeddings_path)
-    text_field.build_vocab(train, max_size=args.max_vocab_size, vectors=pre_embeddings)
+    logging.info('Initializing the vocabulary...')
+    text_field.build_vocab(train, max_size=args.max_vocab_size, vectors="glove.6B.300d", unk_init=torch.Tensor.normal_)
 
     return train, test, text_field, label_field
+

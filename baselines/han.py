@@ -15,8 +15,10 @@ class WordLevelRNN(nn.Module):
         words_num, words_dim = vectors.shape
         self.embed = nn.Embedding.from_pretrained(vectors, freeze=False)
         self.word_context_weights = nn.Parameter(torch.rand(2 * word_num_hidden, 1))
+
         stdv = 1. / math.sqrt(self.word_context_weights.size(0))
         self.word_context_weights.data.normal_(mean=0, std=stdv)
+
         self.GRU = nn.GRU(words_dim, word_num_hidden, bidirectional=True)
         self.linear = nn.Linear(2 * word_num_hidden, 2 * word_num_hidden, bias=True)
         self.soft_word = nn.Softmax(dim=-1)
@@ -44,8 +46,10 @@ class SentLevelRNN(nn.Module):
         target_class = args.target_class
 
         self.sentence_context_weights = nn.Parameter(torch.rand(2 * sentence_num_hidden, 1))
+
         stdv = 1. / math.sqrt(self.sentence_context_weights.size(0))
         self.sentence_context_weights.data.normal_(mean=0, std=stdv)
+
         self.sentence_gru = nn.GRU(2 * word_num_hidden, sentence_num_hidden, bidirectional=True)
         self.sentence_linear = nn.Linear(2 * sentence_num_hidden, 2 * sentence_num_hidden, bias=True)
         self.fc = nn.Linear(2 * sentence_num_hidden, target_class)
