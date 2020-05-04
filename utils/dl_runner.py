@@ -10,7 +10,7 @@ stats_columns = '{0:>5}|{1:>5}|{2:>5}|{3:>5}|{4:>5}|{5:>5}|{6:>5}|{7:>5}|{8:>5}|
 
 
 def train(train_iter, dev_iter, model, optimizer, loss_criterion, args):
-    best_dev_f1 = -1
+    best_dev_f1 = 0
 
     n_total_steps = len(train_iter)
 
