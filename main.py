@@ -7,7 +7,7 @@ from torch import nn
 from torch import optim
 
 from data.plausible import read_files
-from baselines.han import HAN, add_han_specific_parser
+from baselines.model_factory import model_maps, parser_maps
 from utils.dl_runner import train_kfold, train_split
 
 # Setup colorful logging
@@ -38,12 +38,14 @@ if __name__ == '__main__':
     parser.add_argument('--lr', default=1e-5, type=float)
     parser.add_argument('--momentum', default=0.9)
     parser.add_argument('--checkpoint_dir', default='./datasets/model')
-    parser.add_argument('--training_mode', choices=['kfold','random_split'])
+    parser.add_argument('--training_mode', choices=['kfold', 'random_split'])
+    parser.add_argument('--model', choices=['han'])
 
-    # add model specific params
-    parser = add_han_specific_parser(parser)
+    # TODO make it better add model specific params, check later how to do that
+    parser = parser_maps['han'](parser)
 
     args = parser.parse_args()
+
     args.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     init_random_seeds(args.seed)
 
@@ -57,16 +59,16 @@ if __name__ == '__main__':
 
     args.vectors = text_field.vocab.vectors
 
-    model = HAN(args)
+    model = model_maps[args.model](args)
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
     loss_criterion = nn.BCEWithLogitsLoss()
 
     if 'kfold' == args.training_mode:
-        train_kfold(model, train_data,text_field, label_field, optimizer, loss_criterion, args)
+        train_kfold(model, train_data, text_field, label_field, optimizer, loss_criterion, args)
         # todo add cross validation score calculation
     elif 'random_split':
-        train_split(model, train_data,text_field, label_field, optimizer, loss_criterion, args)
+        train_split(model, train_data, text_field, label_field, optimizer, loss_criterion, args)
     else:
         logging.debug('Invalid option.')
 
-    #todo evaluate with test data
+    # todo evaluate with test data
