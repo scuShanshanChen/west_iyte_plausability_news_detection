@@ -1,7 +1,7 @@
 import csv
 
 
-def kg_to_openke(kg_path: str, triple_path):
+def kg_to_openke(kg_path: str, triple_path:str):
     '''
     @todo not implemented fully
     Given path to knowledge graph: it creates following files to train entity & relation embeddings
@@ -26,13 +26,13 @@ def kg_to_openke(kg_path: str, triple_path):
             entity2 = row[3]
 
             if entity1.startswith(english) and entity2.startswith(english):
-                if not entity1 in entities:
+                if entity1 not in entities:
                     entity_id += 1
                     entities[entity1] = entity_id
-                if not entity2 in entities:
+                if entity2 not in entities:
                     entity_id += 1
                     entities[entity2] = entity_id
-                if not relation in relations:
+                if relation not in relations:
                     relation_id += 1
                     relations[relation] = relation_id
 

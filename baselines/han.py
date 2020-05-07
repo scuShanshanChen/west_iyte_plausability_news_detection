@@ -85,9 +85,3 @@ class HAN(nn.Module):
             else:
                 word_attentions = torch.cat((word_attentions, word_attn), 0)
         return self.sentence_attention_rnn(word_attentions).squeeze(1)
-
-
-def add_han_specific_parser(parser):
-    parser.add_argument('--word_num_hidden', type=int, default=50)
-    parser.add_argument('--sentence_num_hidden', type=int, default=50)
-    return parser
