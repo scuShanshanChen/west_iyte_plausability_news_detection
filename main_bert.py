@@ -50,14 +50,13 @@ if __name__ == '__main__':
     args.target_path = './datasets/'
 
     logging.debug('Reading datasets...')
-    train_data, test_data = read_files(args)
-
+    train_data, dev_data, test_data = read_files(args)
     model = BertForSequenceClassification.from_pretrained("bert-base-uncased", num_labels=2,
                                                           output_attentions=False, output_hidden_states=False)
     model.cpu()
     optimizer = AdamW(model.parameters(), lr=args.lr, eps=1e-8)
 
-    train_split(model, train_data, optimizer, args)
+    train_split(model, train_data, dev_data, optimizer, args)
 
 
 

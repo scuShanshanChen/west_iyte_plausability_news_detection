@@ -9,6 +9,7 @@ import os
 from joblib import Memory
 import logging
 from sklearn.metrics import accuracy_score, f1_score, recall_score, precision_score
+from sklearn.model_selection import train_test_split
 from utils.dl_runner import save_model
 
 stats_columns = '{0:>5}|{1:>5}|{2:>5}|{3:>5}|{4:>5}|{5:>5}|{6:>5}|{7:>5}|{8:>5}|{9:>5}|{10:>5}'
@@ -20,14 +21,20 @@ logger = logging.getLogger('baselines/bert.py')
 
 def read_files(args):
     train_path = os.path.join(args.target_path, 'train.tsv')
+    dev_path = os.path.join(args.target_path, 'dev.tsv')
     test_path = os.path.join(args.target_path, 'test.tsv')
 
 
     logging.debug("Reading Datasets...")
     df_train = pd.read_csv(train_path, delimiter='\t')
+    df_dev = pd.read_csv(dev_path, delimiter='\t')
     df_test = pd.read_csv(test_path, delimiter='\t')
+
+
     train_articles = df_train.text.values
     train_labels = df_train.label.values
+    dev_articles = df_dev.text.values
+    dev_labels = df_dev.label.values
     test_articles = df_test.text.values
     test_labels = df_test.label.values
 
@@ -36,6 +43,8 @@ def read_files(args):
 
     train_ids = []
     train_att_mask = []
+    dev_ids = []
+    dev_att_mask = []
     test_ids = []
     test_att_mask = []
     for article in train_articles:
@@ -43,6 +52,12 @@ def read_files(args):
                                                 return_attention_mask=True, return_tensors='pt')
         train_ids.append(encoded_article['input_ids'])
         train_att_mask.append(encoded_article['attention_mask'])
+    for article in dev_articles:
+        encoded_article = tokenizer.encode_plus(article, add_special_tokens=True, max_length=args.MAX_LEN,
+                                                 pad_to_max_length=True,
+                                                 return_attention_mask=True, return_tensors='pt')
+        dev_ids.append(encoded_article['input_ids'])
+        dev_att_mask.append(encoded_article['attention_mask'])
     for article in test_articles:
         encoded_article = tokenizer.encode_plus(article, add_special_tokens=True,max_length=args.MAX_LEN, pad_to_max_length=True,
                                                 return_attention_mask=True, return_tensors='pt')
@@ -50,26 +65,26 @@ def read_files(args):
         test_att_mask.append(encoded_article['attention_mask'])
 
     train_ids = torch.cat(train_ids, dim=0)
+    dev_ids = torch.cat(dev_ids, dim=0)
     test_ids = torch.cat(test_ids, dim=0)
     train_att_mask = torch.cat(train_att_mask, dim=0)
+    dev_att_mask = torch.cat(dev_att_mask, dim=0)
     test_att_mask = torch.cat(test_att_mask, dim=0)
     train_labels = torch.tensor(train_labels)
+    dev_labels = torch.tensor(dev_labels)
     test_labels = torch.tensor(test_labels)
 
     train_dataset = TensorDataset(train_ids,train_att_mask,train_labels)
+    dev_dataset = TensorDataset(dev_ids,dev_att_mask,dev_labels)
     test_dataset = TensorDataset(test_ids,test_att_mask,test_labels)
 
-    return train_dataset, test_dataset
+    return train_dataset, dev_dataset, test_dataset
 
 
 
 
 
-def train_split(model, train_dataset, optimizer, args, dev_ratio=0.2):
-    logging.info('Mode: random split training')
-    dev_size = int(len(train_dataset)*dev_ratio)
-    train_size = len(train_dataset) - dev_size
-    train_data,dev_data = random_split(train_dataset, [train_size, dev_size])
+def train_split(model, train_data, dev_data, optimizer, args):
 
     train_iter = DataLoader(train_data, sampler=RandomSampler(train_data), batch_size=args.batch_size)
     dev_iter = DataLoader(dev_data, sampler=SequentialSampler(dev_data), batch_size=args.batch_size)
@@ -139,7 +154,7 @@ def train(train_iter, dev_iter, model, optimizer, args):
 
         train_loss = train_loss / n_total_steps
 
-        train_acc, train_f1, train_recall, train_prec = calculate_metrics(_label, _pred)
+        train_acc, train_f1, train_recall, train_prec = calculate_metrics(trues, preds)
 
 
         _dev_label, _dev_pred, dev_loss = eval(dev_iter, model, args)
@@ -187,17 +202,18 @@ def eval(dev_iter, model, args):
         trues.append(_label)
 
     dev_loss = dev_loss / n_total_steps
-    return _label, _pred, dev_loss
+    return trues, preds, dev_loss
 
 
 
 
 
 def calculate_metrics(label, pred):
-    pred_class = np.argmax(pred, axis=1).flatten()
-    label_class = label.flatten()
-    logging.debug('Expected: \n{}'.format(label_class))
-    logging.debug('Predicted: \n{}'.format(pred_class))
+    pred_class = np.concatenate([np.argmax(numarray, axis=1) for numarray in pred]).ravel()
+    label_class = np.concatenate([numarray for numarray in label]).ravel()
+
+    logging.debug('Expected: \n{}'.format(label_class[:20]))
+    logging.debug('Predicted: \n{}'.format(pred_class[:20]))
     acc = accuracy_score(label_class, pred_class)
     f1 = f1_score(label_class, pred_class, average='binary')
     recall = recall_score(label_class, pred_class)
