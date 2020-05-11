@@ -20,3 +20,5 @@ fi
 cd "$SCRIPT_DIR"
 
 python3 ./kg_embedding.py --kg_path "$DATASET_DIR_PATH"OpenKE/"$DATASET_FILE_PATH" --saved_dir "$DATASET_DIR_PATH"OpenKE --seed 42
+
+echo Conversion is completed

@@ -1,19 +1,19 @@
 import logging
+import os
 import random
 import re
-import os
-import torch
+
 import numpy as np
 import pandas as pd
+import torch
 from gensim.models import KeyedVectors
-
 from joblib import Memory
-from torchtext import data
-from sklearn.model_selection import train_test_split
-from torchtext.data import Dataset
-from torchtext.vocab import Vectors
 from nltk.tokenize import sent_tokenize
 from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import train_test_split
+from torchtext import data
+from torchtext.data import Dataset
+from torchtext.vocab import Vectors
 
 logger = logging.getLogger('data/plausible.py')
 random.seed = 42
@@ -143,6 +143,15 @@ def read_files(args):
                              skip_header=True,
                              fields=fields
                              )
+
+    dev_path = os.path.join(target_path, 'dev.tsv')
+    logger.debug('Reading dev samples from {}'.format(train_path))
+    dev = PlausibleDataset(path=dev_path,
+                           format='tsv',
+                           skip_header=True,
+                           fields=fields
+                           )
+
     test_path = os.path.join(target_path, 'test.tsv')
     logger.debug('Reading test samples from {}'.format(test_path))
     test = PlausibleDataset(path=test_path,
@@ -152,6 +161,17 @@ def read_files(args):
                             )
 
     logging.info('Initializing the vocabulary...')
-    text_field.build_vocab(train, max_size=args.max_vocab_size, vectors="glove.6B.300d", unk_init=torch.Tensor.normal_)
+    text_field.build_vocab(train, max_size=args.max_vocab_size,
+                           vectors=get_embeddings(args.embedding_name), unk_init=torch.Tensor.normal_)
 
-    return train, test, text_field, label_field
+    return train, dev, test, text_field, label_field
+
+
+def get_embeddings(embedding_name='conceptnet'):
+    if 'conceptnet' == embedding_name:
+        path = './datasets/numberbatch-en-17.02.txt'
+        vector = Vectors(path, cache='./datasets/')
+        return vector
+
+    if 'glove' == embedding_name:
+        return 'glove.6B.300d'
