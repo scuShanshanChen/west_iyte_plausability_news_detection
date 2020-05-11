@@ -125,10 +125,10 @@ def googlenews_wrapper(bin_file_path):
 
 @MEMORY.cache
 def read_files(args):
+    target_path = args.target_path
     if args.is_from_scratch:
         plausible_path = args.plausible_path
         implausible_path = args.implausible_path
-        target_path = args.target_path
         prepare_tsv(plausible_path, implausible_path, target_path, option='combined')
 
     nesting_field = data.Field(batch_first=True, tokenize=word_tokenizer,
