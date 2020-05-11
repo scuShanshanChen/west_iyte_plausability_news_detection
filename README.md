@@ -14,3 +14,13 @@ Run in one of virtual environment. If you have a server incompatible with venv, 
 ### Training
 
 an example script how to train the model `python main.py --training_mode random_split --epochs 20`
+
+
+## Experiments
+
+This table will be updated...
+
+Model | Mode | Acc | F1 | Recall | Precision
+| --- | --- | --- | --- | --- | --- |
+majority | dev | 0.58 | 0.73 | 1.0 | 0.58
+majority | test | 0.6 | 0.75 | 1.0 | 0.6

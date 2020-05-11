@@ -1,5 +1,19 @@
 import argparse
 
+RANDOM_STATE = 42
+
+
+# ref: https://stackoverflow.com/questions/15008758/parsing-boolean-values-with-argparse
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
+
 
 def add_han_specific_parser(parser):
     parser.add_argument('--word_num_hidden', type=int, default=50)
@@ -21,5 +35,6 @@ parser.add_argument('--momentum', default=0.9)
 parser.add_argument('--checkpoint_dir', default='./datasets/model')
 parser.add_argument('--training_mode', choices=['kfold', 'random_split'])
 parser.add_argument('--model', choices=['han'])
+parser.add_argument('--is_from_scratch', choices=[True, False], type=str2bool, default=False)
 
 args = parser.parse_args()
