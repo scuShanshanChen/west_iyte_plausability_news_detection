@@ -1,17 +1,15 @@
-import logging
 import argparse
+import logging
+
 import coloredlogs
 import torch
-import os
-from torch import nn
-from torch import optim
-from transformers import BertForSequenceClassification, BertConfig, AdamW
+from transformers import BertForSequenceClassification, AdamW
 
-from baselines.bert import add_bert_specific_parser,read_files, train_split
+from baselines.bert.bert import add_bert_specific_parser, read_files, train_split
 
 # Setup colorful logging
 logging.basicConfig()
-logger = logging.getLogger('main_bert.py')
+logger = logging.getLogger('__main__.py')
 logger.root.setLevel(logging.DEBUG)
 coloredlogs.install(level='DEBUG', logger=logger)
 
@@ -24,27 +22,37 @@ def init_random_seeds(seed):
     torch.backends.cudnn.deterministic = True
 
 
+# ref: https://stackoverflow.com/questions/15008758/parsing-boolean-values-with-argparse
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Experiments for Plausible Detection Models')
     parser.add_argument('--seed', default=42, type=int)
-    parser.add_argument('--target_class', default=1, type=int)
+    parser.add_argument('--use_gpu', default=False, type=str2bool)
     parser.add_argument('--batch_size', default=8, type=int)
-    parser.add_argument('--max_vocab_size', default=100000, type=int)
-    parser.add_argument('--sent_max_len', default=50, type=int)
-    parser.add_argument('--word_max_len', default=50, type=int)
-    parser.add_argument('--kfold', default=5, type=int)
     parser.add_argument('--epochs', default=5, type=int)
     parser.add_argument('--lr', default=1e-5, type=float)
-    parser.add_argument('--momentum', default=0.9)
     parser.add_argument('--checkpoint_dir', default='./datasets/model')
-    parser.add_argument('--training_mode', choices=['kfold','random_split'])
 
     # add model specific params
     parser = add_bert_specific_parser(parser)
 
     args = parser.parse_args()
-    #args.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    args.device = 'cpu'
+
+    if args.use_gpu and torch.cuda.is_available():
+        args.device = torch.device('cuda')
+    else:
+        args.device = torch.device('cpu')
+
     init_random_seeds(args.seed)
 
     args.target_path = './datasets/'
@@ -58,11 +66,4 @@ if __name__ == '__main__':
 
     train_split(model, train_data, dev_data, optimizer, args)
 
-
-
-
-
-
-
-
-    #todo evaluate with test data
+    # todo evaluate with test data

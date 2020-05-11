@@ -1,15 +1,14 @@
-from transformers import BertTokenizer, get_linear_schedule_with_warmup
-import torch
-import torch.nn as nn
-from torch.utils.data import RandomSampler, SequentialSampler, DataLoader, TensorDataset, random_split
-import math
+import logging
+import os
+
 import numpy as np
 import pandas as pd
-import os
-from joblib import Memory
-import logging
+import torch
+import torch.nn as nn
 from sklearn.metrics import accuracy_score, f1_score, recall_score, precision_score
-from sklearn.model_selection import train_test_split
+from torch.utils.data import RandomSampler, SequentialSampler, DataLoader, TensorDataset
+from transformers import BertTokenizer, get_linear_schedule_with_warmup
+
 from utils.dl_runner import save_model
 
 stats_columns = '{0:>5}|{1:>5}|{2:>5}|{3:>5}|{4:>5}|{5:>5}|{6:>5}|{7:>5}|{8:>5}|{9:>5}|{10:>5}'
@@ -17,19 +16,15 @@ stats_columns = '{0:>5}|{1:>5}|{2:>5}|{3:>5}|{4:>5}|{5:>5}|{6:>5}|{7:>5}|{8:>5}|
 logger = logging.getLogger('baselines/bert.py')
 
 
-
-
 def read_files(args):
     train_path = os.path.join(args.target_path, 'train.tsv')
     dev_path = os.path.join(args.target_path, 'dev.tsv')
     test_path = os.path.join(args.target_path, 'test.tsv')
 
-
     logging.debug("Reading Datasets...")
     df_train = pd.read_csv(train_path, delimiter='\t')
     df_dev = pd.read_csv(dev_path, delimiter='\t')
     df_test = pd.read_csv(test_path, delimiter='\t')
-
 
     train_articles = df_train.text.values
     train_labels = df_train.label.values
@@ -48,18 +43,20 @@ def read_files(args):
     test_ids = []
     test_att_mask = []
     for article in train_articles:
-        encoded_article = tokenizer.encode_plus(article, add_special_tokens=True,max_length=args.MAX_LEN, pad_to_max_length=True,
+        encoded_article = tokenizer.encode_plus(article, add_special_tokens=True, max_length=args.MAX_LEN,
+                                                pad_to_max_length=True,
                                                 return_attention_mask=True, return_tensors='pt')
         train_ids.append(encoded_article['input_ids'])
         train_att_mask.append(encoded_article['attention_mask'])
     for article in dev_articles:
         encoded_article = tokenizer.encode_plus(article, add_special_tokens=True, max_length=args.MAX_LEN,
-                                                 pad_to_max_length=True,
-                                                 return_attention_mask=True, return_tensors='pt')
+                                                pad_to_max_length=True,
+                                                return_attention_mask=True, return_tensors='pt')
         dev_ids.append(encoded_article['input_ids'])
         dev_att_mask.append(encoded_article['attention_mask'])
     for article in test_articles:
-        encoded_article = tokenizer.encode_plus(article, add_special_tokens=True,max_length=args.MAX_LEN, pad_to_max_length=True,
+        encoded_article = tokenizer.encode_plus(article, add_special_tokens=True, max_length=args.MAX_LEN,
+                                                pad_to_max_length=True,
                                                 return_attention_mask=True, return_tensors='pt')
         test_ids.append(encoded_article['input_ids'])
         test_att_mask.append(encoded_article['attention_mask'])
@@ -74,18 +71,14 @@ def read_files(args):
     dev_labels = torch.tensor(dev_labels)
     test_labels = torch.tensor(test_labels)
 
-    train_dataset = TensorDataset(train_ids,train_att_mask,train_labels)
-    dev_dataset = TensorDataset(dev_ids,dev_att_mask,dev_labels)
-    test_dataset = TensorDataset(test_ids,test_att_mask,test_labels)
+    train_dataset = TensorDataset(train_ids, train_att_mask, train_labels)
+    dev_dataset = TensorDataset(dev_ids, dev_att_mask, dev_labels)
+    test_dataset = TensorDataset(test_ids, test_att_mask, test_labels)
 
     return train_dataset, dev_dataset, test_dataset
 
 
-
-
-
 def train_split(model, train_data, dev_data, optimizer, args):
-
     train_iter = DataLoader(train_data, sampler=RandomSampler(train_data), batch_size=args.batch_size)
     dev_iter = DataLoader(dev_data, sampler=SequentialSampler(dev_data), batch_size=args.batch_size)
 
@@ -99,22 +92,16 @@ def train_split(model, train_data, dev_data, optimizer, args):
     train(train_iter, dev_iter, model, optimizer, args)
 
 
-
-
-
-
-
 def train(train_iter, dev_iter, model, optimizer, args):
     best_dev_f1 = -1
 
     n_total_steps = len(train_iter)
-    total_iter = len(train_iter)*args.epochs
+    total_iter = len(train_iter) * args.epochs
 
     logging.info(
         stats_columns.format(
             'Epoch', 'T-Acc', 'T-F1', 'T-Recall', 'T-Prec', 'T-Loss'
             , 'D-Acc', 'D-F1', 'D-Recall', 'D-Prec', 'D-Loss'))
-
 
     scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=0, num_training_steps=total_iter)
 
@@ -127,7 +114,6 @@ def train(train_iter, dev_iter, model, optimizer, args):
         trues = []
 
         for batch_ids in train_iter:
-
             input_ids = batch_ids[0].to(args.device)
             att_masks = batch_ids[1].to(args.device)
             labels = batch_ids[2].to(args.device)
@@ -136,7 +122,7 @@ def train(train_iter, dev_iter, model, optimizer, args):
             model.zero_grad()
 
             # forward pass
-            loss, logits =  model(input_ids, token_type_ids=None, attention_mask=att_masks, labels=labels)
+            loss, logits = model(input_ids, token_type_ids=None, attention_mask=att_masks, labels=labels)
 
             # record preds, trues
             _pred = logits.cpu().data.numpy()
@@ -155,7 +141,6 @@ def train(train_iter, dev_iter, model, optimizer, args):
         train_loss = train_loss / n_total_steps
 
         train_acc, train_f1, train_recall, train_prec = calculate_metrics(trues, preds)
-
 
         _dev_label, _dev_pred, dev_loss = eval(dev_iter, model, args)
 
@@ -177,7 +162,6 @@ def train(train_iter, dev_iter, model, optimizer, args):
             save_model(model, optimizer, epoch, model_name, training_mode, args.checkpoint_dir)
 
 
-
 def eval(dev_iter, model, args):
     n_total_steps = len(dev_iter)
     model.eval()
@@ -192,7 +176,7 @@ def eval(dev_iter, model, args):
 
         # forward pass
         with torch.no_grad():
-            loss, logits =  model(input_ids, token_type_ids=None, attention_mask=att_masks, labels=labels)
+            loss, logits = model(input_ids, token_type_ids=None, attention_mask=att_masks, labels=labels)
         dev_loss += loss.item()
 
         # record preds, trues
@@ -203,9 +187,6 @@ def eval(dev_iter, model, args):
 
     dev_loss = dev_loss / n_total_steps
     return trues, preds, dev_loss
-
-
-
 
 
 def calculate_metrics(label, pred):
@@ -220,11 +201,6 @@ def calculate_metrics(label, pred):
     prec = precision_score(label_class, pred_class)
 
     return acc, f1, recall, prec
-
-
-
-
-
 
 
 def add_bert_specific_parser(parser):
