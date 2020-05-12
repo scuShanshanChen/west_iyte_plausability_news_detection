@@ -62,6 +62,7 @@ NBSVM-unigram+bigram | merged | test | 0.78 | 0.82 | 0.9 | 0.75
 
 Following table is from the experiment with 10-fold cross validation with seed 42
 Model | Feature | Acc_CV | F1_CV | Recall_CV | Precision_CV
+| --- | --- | --- | --- | --- | --- |
 majority | any feature | 0.58 +/- 0.00 +/- 0.00 | 0.74 +/- 0.00 +/- 0.00 | 1.00 +/- 0.00 +/- 0.00 | 0.58 +/- 0.00 +/- 0.00
 NBSVM-unigram | headline | 0.73 +/- 0.03 +/- 0.03 | 0.77 +/- 0.02 +/- 0.02 | 0.81 +/- 0.02 +/- 0.02 | 0.74 +/- 0.02 +/- 0.02
 NBSVM-unigram+bigram | headline | 0.72 +/- 0.04 +/- 0.04 | 0.78 +/- 0.03 +/- 0.03 | 0.83 +/- 0.04 +/- 0.04 | 0.73 +/- 0.03 +/- 0.03
