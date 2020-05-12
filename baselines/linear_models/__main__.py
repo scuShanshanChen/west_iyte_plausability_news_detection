@@ -142,10 +142,10 @@ if __name__ == '__main__':
             recall = group['Recall'].values.tolist()
             prec = group['Precision'].values.tolist()
             logger.info(stats_columns.format(name, feature,
-                                             '%0.2f' % np.mean(acc) + ' +/- %0.2f' % np.std(acc) * 2,
-                                             '%0.2f' % np.mean(f1) + ' +/- %0.2f' % np.std(f1) * 2,
-                                             '%0.2f' % np.mean(recall) + ' +/- %0.2f' % np.std(recall) * 2,
-                                             '%0.2f' % np.mean(prec) + ' +/- %0.2f' % np.std(prec) * 2))
+                                             '%0.2f' % np.mean(acc) + ' +/- %0.2f' % np.std(acc),
+                                             '%0.2f' % np.mean(f1) + ' +/- %0.2f' % np.std(f1),
+                                             '%0.2f' % np.mean(recall) + ' +/- %0.2f' % np.std(recall),
+                                             '%0.2f' % np.mean(prec) + ' +/- %0.2f' % np.std(prec)))
 
     elif 'random_split' == args.training_mode:
         target_folder = os.path.join(target_dir, 'random_seed_{}'.format(args.seed))
