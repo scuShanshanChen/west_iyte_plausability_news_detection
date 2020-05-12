@@ -10,6 +10,10 @@ Run in one of virtual environment. If you have a server incompatible with venv, 
 - `pip install -r requirements.txt`
 
 ## Running the experiments
+### Linear Models
+To get results of linear models, run the following:
+
+`python -m baselines.linear_models --seed 42`
 
 ### Training
 
