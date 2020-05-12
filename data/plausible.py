@@ -2,6 +2,7 @@ import logging
 import os
 import random
 import re
+from enum import Enum
 
 import numpy as np
 import pandas as pd
@@ -19,6 +20,11 @@ logger = logging.getLogger('data/plausible.py')
 random.seed = 42
 random_seed = 42
 MEMORY = Memory(location="../datasets/cache", verbose=1)
+
+
+class LABEL_MAP(Enum):
+    PLAUSIBLE = 1
+    IMPLAUSIBLE = 0
 
 
 class PlausibleDataset(data.TabularDataset):
@@ -181,4 +187,3 @@ def get_embeddings(embedding_name='conceptnet'):
 
     if 'glove' == embedding_name:
         return 'glove.6B.300d'
-
