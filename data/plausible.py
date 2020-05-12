@@ -166,6 +166,15 @@ def prepare_tsv(plausible_path, implausible_path, target_path, option='combined'
     test.to_csv(os.path.join(target_path, 'test.tsv'), sep='\t', index=False)
 
 
+def get_feature(data, feature):
+    if 'headline' == feature:
+        data = data['title']
+    elif 'body' == feature:
+        data = data['content']
+    else:
+        data = data['title'] + data['content']
+    return data
+
 @MEMORY.cache
 def combined_index(implausible, plausible):
     plausible['text'] = plausible['title'] + plausible['content']

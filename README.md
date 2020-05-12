@@ -29,7 +29,9 @@ That command creates a folder name as `kfold_random_seed_42` and creates `kfold_
 ### Linear Models
 To get results of linear models, run the following:
 
-`python -m baselines.linear_models --seed 42`
+`python -m baselines.linear_models --seed 42 --training_mode random_split --feature headline`
+
+`feature` is input type: you can select `headline`, `body`, `merged` (the headline is joined to the body)
 
 ### Training
 
@@ -40,12 +42,20 @@ an example script how to train the model `python main.py --training_mode random_
 
 This table will be updated...
 
-Model | Mode | Acc | F1 | Recall | Precision
-| --- | --- | --- | --- | --- | --- |
-majority | dev | 0.58 | 0.73 | 1.0 | 0.58
-majority | test | 0.6 | 0.75 | 1.0 | 0.6
-NBSVM-unigram | dev | 0.6 | 0.75 | 1.0 | 0.6
-NBSVM-unigram | test | 0.78 | 0.82 | 0.84 | 0.8
-NBSVM-unigram+bigram | dev | 0.78 | 0.82 | 0.84 | 0.8
-NBSVM-unigram+bigram | test | 0.79 | 0.84 | 0.88 | 0.79
-
+Following table is from the experiment with random split with seed 42
+ Model | Feature | Mode | Acc | F1 | Recall | Precision
+| --- | --- | --- | --- | --- | --- | --- |
+majority | any feature | dev | 0.62 | 0.76 | 1.0 | 0.62
+majority | any feature | test | 0.56 | 0.72 | 1.0 | 0.56
+NBSVM-unigram | headline | dev | 0.56 | 0.72 | 1.0 | 0.56
+NBSVM-unigram | headline | test | 0.72 | 0.76 | 0.79 | 0.73
+NBSVM-unigram+bigram | headline | dev | 0.72 | 0.76 | 0.79 | 0.73
+NBSVM-unigram+bigram | headline | test | 0.7 | 0.76 | 0.84 | 0.69
+NBSVM-unigram | body | dev | 0.56 | 0.72 | 1.0 | 0.56
+NBSVM-unigram | body | test | 0.75 | 0.79 | 0.84 | 0.75
+NBSVM-unigram+bigram | body | dev | 0.75 | 0.79 | 0.84 | 0.75
+NBSVM-unigram+bigram | body | test | 0.79 | 0.82 | 0.9 | 0.76
+NBSVM-unigram | merged | dev | 0.56 | 0.72 | 1.0 | 0.56
+NBSVM-unigram | merged | test | 0.75 | 0.79 | 0.85 | 0.74
+NBSVM-unigram+bigram | merged | dev | 0.75 | 0.79 | 0.85 | 0.74
+NBSVM-unigram+bigram | merged | test | 0.78 | 0.82 | 0.9 | 0.75
