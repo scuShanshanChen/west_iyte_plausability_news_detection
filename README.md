@@ -10,6 +10,22 @@ Run in one of virtual environment. If you have a server incompatible with venv, 
 - `pip install -r requirements.txt`
 
 ## Running the experiments
+
+### Preparing experiment data
+You can create random splits from all samples given a seed value or can create kfold splits as train and test set given a seed and a kfold value.
+
+Random split with seed 42 is executed as follows:
+
+`python -m data --seed 42 --training_mode random_split` 
+
+That command creates a folder name as `random_seed_42` and files as `dev.tsv`, and `test.tsv`, `train.tsv`. `train.tsv` is %60 of all data, `dev.tsv` and `test.tsv` are %20 of all data.
+
+10 fold split with seed 10 is executed as follows:
+
+`python -m data --seed 42 --training_mode kfold --kfold 10` 
+
+That command creates a folder name as `kfold_random_seed_42` and creates `kfold_{kfold_id}_train.tsv` and `kfold_{kfold_id}_test.tsv` for each fold.
+
 ### Linear Models
 To get results of linear models, run the following:
 
