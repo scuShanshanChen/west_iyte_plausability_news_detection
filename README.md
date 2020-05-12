@@ -1,4 +1,4 @@
-# west_iyte_plausability_news_detection
+# WeST & IYTE Plausibility Detection on News
 
 ## Installation
 Run in one of virtual environment. If you have a server incompatible with venv, do the [following](https://stackoverflow.com/questions/50777849/from-conda-create-requirements-txt-for-pip3):
@@ -59,3 +59,13 @@ NBSVM-unigram | merged | dev | 0.56 | 0.72 | 1.0 | 0.56
 NBSVM-unigram | merged | test | 0.75 | 0.79 | 0.85 | 0.74
 NBSVM-unigram+bigram | merged | dev | 0.75 | 0.79 | 0.85 | 0.74
 NBSVM-unigram+bigram | merged | test | 0.78 | 0.82 | 0.9 | 0.75
+
+Following table is from the experiment with 10-fold cross validation with seed 42
+Model | Feature | Acc_CV | F1_CV | Recall_CV | Precision_CV
+majority | any feature | 0.58 +/- 0.00 +/- 0.00 | 0.74 +/- 0.00 +/- 0.00 | 1.00 +/- 0.00 +/- 0.00 | 0.58 +/- 0.00 +/- 0.00
+NBSVM-unigram | headline | 0.73 +/- 0.03 +/- 0.03 | 0.77 +/- 0.02 +/- 0.02 | 0.81 +/- 0.02 +/- 0.02 | 0.74 +/- 0.02 +/- 0.02
+NBSVM-unigram+bigram | headline | 0.72 +/- 0.04 +/- 0.04 | 0.78 +/- 0.03 +/- 0.03 | 0.83 +/- 0.04 +/- 0.04 | 0.73 +/- 0.03 +/- 0.03
+NBSVM-unigram | body | 0.80 +/- 0.02 +/- 0.02 | 0.83 +/- 0.02 +/- 0.02 | 0.86 +/- 0.04 +/- 0.04 | 0.80 +/- 0.03 +/- 0.03
+NBSVM-unigram+bigram | body | 0.80 +/- 0.03 +/- 0.03 | 0.83 +/- 0.03 +/- 0.03 | 0.88 +/- 0.05 +/- 0.05 | 0.80 +/- 0.03 +/- 0.03
+NBSVM-unigram | merged | 0.79 +/- 0.04 +/- 0.04 | 0.83 +/- 0.03 +/- 0.03 | 0.86 +/- 0.05 +/- 0.05 | 0.80 +/- 0.03 +/- 0.03
+NBSVM-unigram+bigram | merged | 0.80 +/- 0.03 +/- 0.03 | 0.84 +/- 0.03 +/- 0.03 | 0.88 +/- 0.04 +/- 0.04 | 0.80 +/- 0.03 +/- 0.03
