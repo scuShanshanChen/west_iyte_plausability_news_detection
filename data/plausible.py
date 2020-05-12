@@ -55,6 +55,12 @@ class PlausibleDataset(data.TabularDataset):
 
 
 def word_tokenizer(text: str):
+    text = clean_text(text)
+    text = text.split()
+    return text
+
+
+def clean_text(text):
     text = text.lower()
     text = re.sub(r"http\S+", "", text, flags=re.MULTILINE)
     text = re.sub('\w*\d\w*', '', text)
@@ -62,7 +68,6 @@ def word_tokenizer(text: str):
     text = re.sub('\(.*?\)', '', text)
     text = re.sub(r"[\n\t\s]+", " ", text)
     text = text.strip()
-    text = text.split()
     return text
 
 

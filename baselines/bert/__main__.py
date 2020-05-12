@@ -4,6 +4,7 @@ import logging
 import coloredlogs
 import torch
 from transformers import BertForSequenceClassification, AdamW
+from configs.args import args
 
 from baselines.bert.bert import add_bert_specific_parser, read_files, train_split
 
