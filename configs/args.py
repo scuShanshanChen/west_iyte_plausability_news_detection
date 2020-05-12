@@ -21,6 +21,11 @@ def add_han_specific_parser(parser):
     return parser
 
 
+def data_sampling_parser(parser):
+    parser.add_argument('--feature', choices=['headline', 'body', 'merged'], type=str)
+    return parser
+
+
 parser = argparse.ArgumentParser(description='Experiments for Plausible Detection Models')
 parser.add_argument('--seed', default=42, type=int)
 parser.add_argument('--target_class', default=1, type=int)
@@ -37,4 +42,5 @@ parser.add_argument('--training_mode', choices=['kfold', 'random_split'])
 parser.add_argument('--model', choices=['han'])
 parser.add_argument('--is_from_scratch', choices=[True, False], type=str2bool, default=False)
 
+parser = data_sampling_parser(parser)
 args = parser.parse_args()

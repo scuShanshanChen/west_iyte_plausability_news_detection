@@ -2,6 +2,7 @@ import logging
 import os
 import random
 import re
+from enum import Enum
 
 import numpy as np
 import pandas as pd
@@ -19,6 +20,11 @@ logger = logging.getLogger('data/plausible.py')
 random.seed = 42
 random_seed = 42
 MEMORY = Memory(location="../datasets/cache", verbose=1)
+
+
+class LABEL_MAP(Enum):
+    PLAUSIBLE = 1
+    IMPLAUSIBLE = 0
 
 
 class PlausibleDataset(data.TabularDataset):
@@ -71,6 +77,81 @@ def clean_text(text):
     return text
 
 
+def make_random_split(plausible_path, implausible_path, target_path, seed):
+    '''
+    splits train, dev, test sets given seed. creates a folder random_seed_{seed} under target path
+    :param plausible_path:
+    :type plausible_path:
+    :param implausible_path:
+    :type implausible_path:
+    :param target_path:
+    :type target_path:
+    :param seed:
+    :type seed:
+    :return:
+    :rtype:
+    '''
+    logger.info('Preparing experimental data with the random split mode, seed {}'.format(seed))
+    plausible = pd.read_csv(plausible_path, sep='\t')
+    implausible = pd.read_csv(implausible_path, sep='\t')
+    plausible['label'] = 1
+    implausible['label'] = 0
+    data = pd.concat([plausible[['title', 'content', 'label']], implausible[['title', 'content', 'label']]])
+    # split into 40% test, 60% train
+    train, test = train_test_split(data, test_size=0.4, random_state=seed)
+    # split into 50% test, 50% dev
+    test, dev = train_test_split(test, test_size=0.5, random_state=seed)
+    # so final splits became 20% test, 20% dev, 60% train
+
+    target_folder_name = 'random_seed_{}'.format(seed)
+
+    target_folder_path = os.path.join(target_path, target_folder_name)
+
+    if not os.path.exists(target_folder_path):
+        os.makedirs(target_folder_path)
+
+    train.to_csv(os.path.join(target_folder_path, 'train.tsv'), sep='\t', index=False)
+    test.to_csv(os.path.join(target_folder_path, 'test.tsv'), sep='\t', index=False)
+    dev.to_csv(os.path.join(target_folder_path, 'dev.tsv'), sep='\t', index=False)
+
+
+def make_kfold_split(plausible_path, implausible_path, target_path, kfold, seed):
+    '''
+    splits kfold train test sets given seed. creates a folder kfold_random_seed_{seed} under target path
+    :param plausible_path:
+    :type plausible_path:
+    :param implausible_path:
+    :type implausible_path:
+    :param target_path:
+    :type target_path:
+    :param n_fold:
+    :type n_fold:
+    :param seed:
+    :type seed:
+    :return:
+    :rtype:
+    '''
+    logger.info(
+        'Preparing experimental data with kfold {kfold} split mode, seed {seed}'.format(kfold=kfold, seed=seed))
+    plausible = pd.read_csv(plausible_path, sep='\t')
+    implausible = pd.read_csv(implausible_path, sep='\t')
+    plausible['label'] = 1
+    implausible['label'] = 0
+    data = pd.concat([plausible[['title', 'content', 'label']], implausible[['title', 'content', 'label']]])
+
+    skf = StratifiedKFold(kfold, random_state=seed, shuffle=True)
+    targets = data.label
+    for fold_idx, (train_index, test_index) in enumerate(skf.split(np.zeros(len(targets)), targets)):
+        train, test = data.iloc[train_index], data.iloc[test_index]
+        target_folder_name = 'kfold_random_seed_{}'.format(seed)
+        target_folder_path = os.path.join(target_path, target_folder_name)
+        if not os.path.exists(target_folder_path):
+            os.makedirs(target_folder_path)
+
+        train.to_csv(os.path.join(target_folder_path, 'kfold_{}_train.tsv'.format(fold_idx)), sep='\t', index=False)
+        test.to_csv(os.path.join(target_folder_path, 'kfold_{}_test.tsv').format(fold_idx), sep='\t', index=False)
+
+
 def prepare_tsv(plausible_path, implausible_path, target_path, option='combined'):
     plausible = pd.read_csv(plausible_path, sep='\t')
     implausible = pd.read_csv(implausible_path, sep='\t')
@@ -84,6 +165,15 @@ def prepare_tsv(plausible_path, implausible_path, target_path, option='combined'
     train.to_csv(os.path.join(target_path, 'train.tsv'), sep='\t', index=False)
     test.to_csv(os.path.join(target_path, 'test.tsv'), sep='\t', index=False)
 
+
+def get_feature(data, feature):
+    if 'headline' == feature:
+        data = data['title']
+    elif 'body' == feature:
+        data = data['content']
+    else:
+        data = data['title'] + data['content']
+    return data
 
 @MEMORY.cache
 def combined_index(implausible, plausible):
@@ -181,4 +271,3 @@ def get_embeddings(embedding_name='conceptnet'):
 
     if 'glove' == embedding_name:
         return 'glove.6B.300d'
-
