@@ -1,4 +1,4 @@
-from baselines.han import HAN
+from models.han import HAN
 
 '''
 This class acts as factory of all deep models.

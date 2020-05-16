@@ -2,7 +2,7 @@ import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from sklearn.pipeline import Pipeline
 
-from baselines.linear_models.nbsvm import NBSVM
+from models.linear_models.nbsvm import NBSVM
 
 
 def n_gram(train_X, train_y, dev_X, test_X, model, ngram):

@@ -29,7 +29,7 @@ That command creates a folder name as `kfold_random_seed_42` and creates `kfold_
 ### Linear Models
 To get results of linear models, run the following:
 
-`python -m baselines.linear_models --seed 42 --training_mode random_split --feature headline`
+`python -m models.linear_models --seed 42 --training_mode random_split --feature headline`
 
 `feature` is input type: you can select `headline`, `body`, `merged` (the headline is joined to the body)
 

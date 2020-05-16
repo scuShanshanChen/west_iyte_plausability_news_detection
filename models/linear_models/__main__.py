@@ -7,8 +7,8 @@ import coloredlogs
 import numpy as np
 import pandas as pd
 
-from baselines.linear_models.metrics import calculate_metrics
-from baselines.linear_models.models import majority, nbsvm
+from models.linear_models.metrics import calculate_metrics
+from models.linear_models.models import majority, nbsvm
 from configs.args import args
 from data.plausible import LABEL_MAP, clean_text, get_feature
 

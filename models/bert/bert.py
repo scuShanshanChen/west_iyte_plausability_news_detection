@@ -13,7 +13,7 @@ from utils.dl_runner import save_model
 
 stats_columns = '{0:>5}|{1:>5}|{2:>5}|{3:>5}|{4:>5}|{5:>5}|{6:>5}|{7:>5}|{8:>5}|{9:>5}|{10:>5}'
 
-logger = logging.getLogger('baselines/bert.py')
+logger = logging.getLogger('models/bert.py')
 
 
 def read_files(args):
