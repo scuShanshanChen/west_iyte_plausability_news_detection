@@ -8,9 +8,11 @@ from torch import optim
 from torch.utils.data import DataLoader
 
 from configs.args import args
-from data.plausible import PlausibleDataset, collate_fn
+from data.plausible import PlausibleDataset, collate_fn, Vocab
 from models.dl_models.bigru import biGRU
 from utils.dl_runner import train, set_seed, load_model, inference
+from transformers import get_linear_schedule_with_warmup
+
 
 # Setup colorful logging
 logging.basicConfig()
@@ -21,6 +23,8 @@ coloredlogs.install(level='DEBUG', logger=logger)
 if __name__ == '__main__':
     logging.info('Run experiment in mode {}'.format(args.training_mode))
     target_dir = './datasets/'
+    clip = args.clip
+    batch_size = args.batch_size
 
     if 'kfold' == args.training_mode:
         target_folder = os.path.join(target_dir, 'kfold_random_seed_{}'.format(args.seed))
@@ -77,36 +81,37 @@ if __name__ == '__main__':
         dev_df = pd.read_csv(dev_path, sep='\t')
         test_df = pd.read_csv(test_path, sep='\t')
 
-        dataset_train = PlausibleDataset(train_df, embedding_model='googlenews',
-                                         embedding_path='./datasets/GoogleNews-vectors-negative300.bin.gz',
+        vocab = Vocab(embedding_model='googlenews', embedding_path='./datasets/GoogleNews-vectors-negative300.bin.gz')
+        # vocab = Vocab(embedding_model='numberbatch', embedding_path='./datasets/numberbatch-en-17.02.txt.gz')
+        dataset_train = PlausibleDataset(train_df, vocab=vocab.vocab,
                                          feature=args.feature)
-        vocab = dataset_train.vocab
-        weights_matrix = dataset_train.weights_matrix
 
-        dataset_dev = PlausibleDataset(dev_df, vocab=vocab, feature=args.feature)
+        weights_matrix = vocab.weights_matrix
 
-        train_data = DataLoader(dataset=dataset_train, batch_size=32, shuffle=True, collate_fn=collate_fn)
-        dev_data = DataLoader(dataset=dataset_dev, batch_size=32,
+        dataset_dev = PlausibleDataset(dev_df, vocab=vocab.vocab, feature=args.feature)
+
+        train_data = DataLoader(dataset=dataset_train, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
+        dev_data = DataLoader(dataset=dataset_dev, batch_size=batch_size,
                               collate_fn=collate_fn, shuffle=False)
 
-        model = biGRU(words_dim=300, hidden_size=100, weights_matrix=weights_matrix, num_output=1)
-        params = [np[0] for np in model.named_parameters()]
-
+        model = biGRU(words_dim=300, hidden_size=100, weights_matrix=weights_matrix, fine_tune=args.fine_tune,
+                      num_output=1)
         device = 'cpu'
-        optimizer = optim.Adam(model.parameters(), lr=1e-3, eps=1e-8)
+        optimizer = optim.AdamW(model.parameters(), lr=args.lr, eps=args.eps, weight_decay=args.weight_decay)
         criterion = nn.BCEWithLogitsLoss()
-        epoch = 5
 
+        epoch = args.epochs
         model_name = '{model_name}_best_{mode}.pth'.format(model_name=str(model.__class__.__name__),
                                                            mode=args.training_mode)
         checkpoint_dir = os.path.join('./datasets', model_name)
-        train(epoch, model, train_data, dev_data, optimizer, criterion, device, checkpoint_dir)
+
+        train(epoch, model, train_data, dev_data, optimizer, criterion, device, checkpoint_dir, clip)
 
         ## inference mode ##
         load_model(checkpoint_dir, model, optimizer=None)
 
-        dataset_test = PlausibleDataset(test_df, vocab=vocab, feature=args.feature)
-        test_data = DataLoader(dataset=dataset_test, batch_size=32,
+        dataset_test = PlausibleDataset(test_df, vocab=vocab.vocab, feature=args.feature)
+        test_data = DataLoader(dataset=dataset_test, batch_size=batch_size,
                                collate_fn=collate_fn, shuffle=False)
 
         inference(test_data, model, device)

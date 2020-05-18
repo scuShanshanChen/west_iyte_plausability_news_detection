@@ -7,6 +7,7 @@ from sklearn.metrics import accuracy_score, f1_score, recall_score, precision_sc
 from torch.autograd import Variable
 from torch.nn.utils import clip_grad_norm_
 from tqdm import tqdm
+from transformers import get_linear_schedule_with_warmup
 
 logger = logging.getLogger('utils/dl_runner.py')
 
@@ -20,19 +21,25 @@ stats_template = 'Epoch {epoch_idx}\n' \
                  '{mode} Loss: {loss}\n'
 
 
-def train(num_epochs, model, train_data, dev_data, optimizer, criterion, device, checkpoint_dir):
+def train(num_epochs, model, train_data, dev_data, optimizer, criterion, device, checkpoint_dir, clip):
     best_dev_f1 = 0
+    best_eval_loss = np.inf
+    n_total_steps = len(train_data)
+    total_iter = n_total_steps * num_epochs
+    scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=0, num_training_steps=total_iter)
     for i in range(num_epochs):
-        best_dev_f1 = train_epoch(i, model, train_data, dev_data, optimizer, criterion, device, best_dev_f1,
-                                  checkpoint_dir)
+        best_dev_f1, best_eval_loss = train_epoch(i, model, train_data, dev_data, optimizer, criterion, device,
+                                                  best_dev_f1,
+                                                  checkpoint_dir, clip, scheduler, best_eval_loss)
 
 
-def train_epoch(epoch_idx, model, train_data, dev_data, optimizer, criterion, device, best_dev_f1, model_name):
+def train_epoch(epoch_idx, model, train_data, dev_data, optimizer, criterion, device, best_dev_f1, model_name, clip,
+                scheduler, best_eval_loss):
     model.to(device)
     model.train()
 
     logger.info('Training epoch: {}'.format(epoch_idx))
-    train_loss, output, target = train_batch(criterion, model, optimizer, train_data, device)
+    train_loss, output, target = train_batch(criterion, model, optimizer, train_data, device, clip, scheduler)
     train_acc, train_f1, train_recall, train_prec = calculate_metrics(target, output)
 
     print(stats_template
@@ -50,12 +57,22 @@ def train_epoch(epoch_idx, model, train_data, dev_data, optimizer, criterion, de
         logging.debug('New dev f1 {dev_f1} is larger than best dev f1 {best_dev_f1}'.format(dev_f1=dev_f1,
                                                                                             best_dev_f1=best_dev_f1))
         best_dev_f1 = dev_f1
+        best_eval_loss = eval_loss
         save_model(model, optimizer, model_name)
+    elif best_dev_f1 == dev_f1:
+        if eval_loss <= best_eval_loss:
+            logging.debug(
+                'New dev f1 {dev_f1} is equal to best dev f1 {best_dev_f1} but its loss: {eval_loss} smaller than previous {best_eval_loss}'.format(
+                    dev_f1=dev_f1,
+                    best_dev_f1=best_dev_f1, eval_loss=eval_loss, best_eval_loss=best_eval_loss))
+            best_dev_f1 = dev_f1
+            best_eval_loss = eval_loss
+            save_model(model, optimizer, model_name)
 
-    return best_dev_f1
+    return best_dev_f1, best_eval_loss
 
 
-def train_batch(criterion, model, optimizer, train_data, device):
+def train_batch(criterion, model, optimizer, train_data, device, clip, scheduler):
     train_loss = 0
     n_total_steps = len(train_data)
     labels = []
@@ -63,12 +80,16 @@ def train_batch(criterion, model, optimizer, train_data, device):
     for batch in tqdm(train_data):
         optimizer.zero_grad()
         text = Variable(batch['text']).to(device)
-        output = model(text)
+        text_len = Variable(batch['text_len']).to(device)
+        output = model(text, text_len)
         target = Variable(batch['label']).to(device)
         loss = criterion(output, target)
         loss.backward()
-        clip_grad_norm_(parameters=model.parameters(), max_norm=1.0)
+
+        # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
+        # clip_grad_norm_(model.parameters(), clip)
         optimizer.step()
+        scheduler.step()
         train_loss += loss.item()
         output = torch.round(torch.sigmoid(output)).cpu().data.numpy()
         predictions.append(output)
@@ -98,7 +119,8 @@ def eval_batch(dev_data, model, criterion, device):
     for batch in tqdm(dev_data):
         with torch.no_grad():
             text = Variable(batch['text']).to(device)
-            output = model(text)
+            text_len = Variable(batch['text_len']).to(device)
+            output = model(text, text_len)
 
         target = Variable(batch['label']).to(device)
         loss = criterion(output, target)
@@ -119,7 +141,8 @@ def inference(test_data, model, device):
     for batch in tqdm(test_data):
         with torch.no_grad():
             text = Variable(batch['text']).to(device)
-            output = model(text)
+            text_len = Variable(batch['text_len']).to(device)
+            output = model(text, text_len)
             output = torch.round(torch.sigmoid(output)).cpu().data.numpy()
             predictions.append(output)
 
@@ -127,7 +150,7 @@ def inference(test_data, model, device):
         labels.append(target.cpu().data.numpy())
     labels = np.concatenate(labels)
     predictions = np.concatenate(predictions)
-    acc, f1, recall, prec = calculate_metrics(labels,predictions)
+    acc, f1, recall, prec = calculate_metrics(labels, predictions)
     print(stats_template
           .format(mode='test', epoch_idx='__', acc=acc, f1=f1, recall=recall,
                   prec=prec, loss='__'))

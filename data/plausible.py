@@ -59,41 +59,32 @@ class LABEL_MAP(Enum):
 def get_embedding_model(model_name, fname):
     if 'googlenews' == model_name:
         model = KeyedVectors.load_word2vec_format(fname, limit=50000, binary=True)
+    elif 'numberbatch' == model_name:
+        model = KeyedVectors.load_word2vec_format(fname, limit=50000, binary=False)
 
     return model
 
 
-class PlausibleDataset(Dataset):
-    def __init__(self, df, tokenizer=custom_tokenizer, vocab=None, embedding_model='googlenews',
-                 embedding_path='./datasets/GoogleNews-vectors-negative300.bin.gz', feature='headline'):
-        texts = [tokenizer(text) for text in get_feature(df, feature)]
-        labels = df['label'].values
-        self.tokenizer = tokenizer
+class Vocab(object):
+    def __init__(self, embedding_model, embedding_path):
+        self.embedding_model = embedding_model
+        self.embedding_path = embedding_path
+        self.embed = get_embedding_model(embedding_model, embedding_path)
+        self.vocab = self.build_vocab()
+        self.weights_matrix = self.get_weights_matrix()
 
-        if vocab:
-            self.vocab = vocab
-        else:
-            self.vocab = self.build_vocab(texts)
-            self.weights_matrix = self.get_weights_matrix(embedding_model, embedding_path)
-
-        data = []
-        for idx in range(len(labels)):
-            data.append({'text': torch.LongTensor(self.get_word2ids(texts[idx])),
-                         'label': torch.tensor(labels[idx], dtype=torch.float)})
-        self.data = data
-
-    def build_vocab(self, texts):
+    def build_vocab(self):
         vocab = dict()
         vocab[PAD] = 0
         vocab[SOS] = 1
         vocab[EOS] = 2
         vocab[UNK] = 3
         idx = len(vocab)
-        for sentence in texts:
-            for word in sentence:
-                if word not in vocab:
-                    vocab[word] = idx
-                    idx += 1
+        for word in self.embed.wv.vocab:
+            if word not in vocab:
+                vocab[word] = idx
+                idx += 1
+        logger.info('Vocab size {}'.format(len(vocab)))
         return vocab
 
     def write_vocab(self, filename, vocab):
@@ -104,17 +95,30 @@ class PlausibleDataset(Dataset):
                 else:
                     f.write(word)
 
-    def get_weights_matrix(self, embedding_name, embedding_path):
+    def get_weights_matrix(self):
         matrix_len = len(self.vocab) + 1  # add pad here
-        model = get_embedding_model(embedding_name, embedding_path)
-        emb_dim = model.vector_size
+        emb_dim = self.embed.vector_size
         weights_matrix = np.zeros((matrix_len, emb_dim))
         for word in self.vocab:
-            if word in model:
-                weights_matrix[self.vocab[word]] = model[word]
+            if word in self.embed:
+                weights_matrix[self.vocab[word]] = self.embed[word]
             else:
                 weights_matrix[self.vocab[word]] = np.random.uniform(-0.1, 0.1, (emb_dim,))
         return torch.FloatTensor(weights_matrix)  # make it as torch
+
+
+class PlausibleDataset(Dataset):
+    def __init__(self, df, vocab, tokenizer=custom_tokenizer, feature='headline'):
+        texts = [tokenizer(text) for text in get_feature(df, feature)]
+        labels = df['label'].values
+        self.tokenizer = tokenizer
+        self.vocab = vocab
+
+        data = []
+        for idx in range(len(labels)):
+            data.append({'text': torch.LongTensor(self.get_word2ids(texts[idx])),
+                         'label': torch.tensor(labels[idx], dtype=torch.float)})
+        self.data = data
 
     def get_word2ids(self, sentence):
         word2ids = []
@@ -137,10 +141,14 @@ def collate_fn(batch):
     text = [item['text'] for item in batch]
     label = [item['label'] for item in batch]
 
+    # get length of each sentences
+    text_lens = [len(item['text']) for item in batch]
+
     # pad sequence takes longest instance in batch and pads shorter instances with zero
     padded_text = pad_sequence(text, batch_first=True, padding_value=0)
     # we change the type of label to torch again
-    new_batch = {'text': padded_text, 'label': torch.tensor(label, dtype=torch.float)}
+    new_batch = {'text': padded_text, 'text_len': torch.tensor(text_lens),
+                 'label': torch.tensor(label, dtype=torch.float)}
     return new_batch
 
 
